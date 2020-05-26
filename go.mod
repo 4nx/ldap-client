@@ -1,4 +1,4 @@
-module ldap-client
+module github.com/4nx/ldap-client
 
 go 1.14
 
