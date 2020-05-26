@@ -53,7 +53,7 @@ func (lc *LdapConfig) ldapsConnect() error {
 	return nil
 }
 
-func (lc *LdapConfig) SearchUser(username string) (string, error) {
+func (lc *LdapConfig) Authenticate(username, password string) (string, error) {
 	err := lc.ldapsConnect()
 	if err != nil {
 		return "", err
@@ -89,7 +89,11 @@ func (lc *LdapConfig) SearchUser(username string) (string, error) {
 		}
 	}
 
-	userdn := s.Entries[0].DN
-	log.Printf("User DN found: %s", userdn)
-	return userdn, nil
+	userDn := s.Entries[0].DN
+
+	err = lc.Conn.Bind(userDn, password)
+	if err != nil {
+		log.Printf("Failed to authenticate user: %v", err)
+	}
+	return userDn, nil
 }
