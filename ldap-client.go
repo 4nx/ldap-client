@@ -82,8 +82,10 @@ func (lc *LdapConfig) SearchUser(username string) (string, error) {
 	if len(s.Entries) != 1 {
 		if len(s.Entries) == 0 {
 			log.Printf("User not found: %s", username)
+			return "", fmt.Errorf("User not found: %s", username)
 		} else {
 			log.Printf("Too many results: %d", len(s.Entries))
+			return "", fmt.Errorf("Too many results: %d", len(s.Entries))
 		}
 	}
 
