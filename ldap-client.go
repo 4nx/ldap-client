@@ -102,6 +102,7 @@ func (lc *LdapConfig) Authenticate(username, password string) (map[string]string
 	err = lc.Conn.Bind(userDn, password)
 	if err != nil {
 		log.Printf("Failed to authenticate user: %v", err)
+		return nil, fmt.Errorf("Failed to authenticate user: %v", err)
 	}
 	return userAttr, nil
 }
