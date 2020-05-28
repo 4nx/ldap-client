@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"log"
+	"strings"
 
 	"gopkg.in/ldap.v3"
 )
@@ -18,7 +19,7 @@ type LdapConfig struct {
 	BaseDN       string
 	ServerName   string
 	UserSearch   string // e.g. (objectclass=user)(sAMAccount=%s)
-	Attributes	 []string // e.g. {"givenName", "sn", "mail"}
+	Attributes   string
 }
 
 func (lc *LdapConfig) Close() {
@@ -56,7 +57,7 @@ func (lc *LdapConfig) ldapsConnect() error {
 }
 
 func (lc *LdapConfig) Authenticate(username, password string) (map[string]string, error) {
-	attr := append(lc.Attributes, "dn")
+	attr := strings.Split(lc.Attributes, ",")
 
 	err := lc.ldapsConnect()
 	if err != nil {
@@ -73,7 +74,7 @@ func (lc *LdapConfig) Authenticate(username, password string) (map[string]string
 		lc.BaseDN,
 		ldap.ScopeWholeSubtree, ldap.NeverDerefAliases, 0, 0, false,
 		fmt.Sprintf("(&"+lc.UserSearch+")", username),
-		attr,
+		append(attr, "dn"),
 		nil,
 	)
 
@@ -93,13 +94,12 @@ func (lc *LdapConfig) Authenticate(username, password string) (map[string]string
 		}
 	}
 
-	userDn := s.Entries[0].DN
 	userAttr := map[string]string{}
-	for _, attribute := range lc.Attributes {
+	for _, attribute := range attr {
 		userAttr[attribute] = s.Entries[0].GetAttributeValue(attribute)
 	}
 
-	err = lc.Conn.Bind(userDn, password)
+	err = lc.Conn.Bind(s.Entries[0].DN, password)
 	if err != nil {
 		log.Printf("Failed to authenticate user: %v", err)
 		return nil, fmt.Errorf("Failed to authenticate user: %v", err)
