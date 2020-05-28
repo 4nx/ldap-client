@@ -18,6 +18,7 @@ type LdapConfig struct {
 	BaseDN       string
 	ServerName   string
 	UserSearch   string // e.g. (objectclass=user)(sAMAccount=%s)
+	Attributes	 []string // e.g. {"givenName", "sn", "mail"}
 }
 
 func (lc *LdapConfig) Close() {
@@ -36,12 +37,12 @@ func (lc *LdapConfig) ldapsConnect() error {
 			// TODO: add root ca to this
 			InsecureSkipVerify: true,
 			ServerName:         lc.ServerName,
-			// TODO: set CipherSuites
-			//CipherSuites: []uint16{
-			//	tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
-			//	tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
-			//	tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
-			//},
+			CipherSuites: []uint16{
+				tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+				tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+				tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+				tls.TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
+			},
 			MinVersion: tls.VersionTLS12,
 		}
 
@@ -54,47 +55,53 @@ func (lc *LdapConfig) ldapsConnect() error {
 	return nil
 }
 
-func (lc *LdapConfig) Authenticate(username, password string) (string, error) {
+func (lc *LdapConfig) Authenticate(username, password string) (map[string]string, error) {
+	attr := append(lc.Attributes, "dn")
+
 	err := lc.ldapsConnect()
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	err = lc.Conn.Bind(lc.BindUser, lc.BindPassword)
 	if err != nil {
 		log.Printf("Failed to bind: %v", err)
-		return "", err
+		return nil, err
 	}
 
 	searchRequest := ldap.NewSearchRequest(
 		lc.BaseDN,
 		ldap.ScopeWholeSubtree, ldap.NeverDerefAliases, 0, 0, false,
 		fmt.Sprintf("(&"+lc.UserSearch+")", username),
-		[]string{"dn"},
+		attr,
 		nil,
 	)
 
 	s, err := lc.Conn.Search(searchRequest)
 	if err != nil {
 		log.Printf("User search failed: %v", err)
-		return "", err
+		return nil, err
 	}
 
 	if len(s.Entries) != 1 {
 		if len(s.Entries) == 0 {
 			log.Printf("User not found: %s", username)
-			return "", fmt.Errorf("User not found: %s", username)
+			return nil, fmt.Errorf("User not found: %s", username)
 		} else {
 			log.Printf("Too many results: %d", len(s.Entries))
-			return "", fmt.Errorf("Too many results: %d", len(s.Entries))
+			return nil, fmt.Errorf("Too many results: %d", len(s.Entries))
 		}
 	}
 
 	userDn := s.Entries[0].DN
+	userAttr := map[string]string{}
+	for _, attribute := range lc.Attributes {
+		userAttr[attribute] = s.Entries[0].GetAttributeValue(attribute)
+	}
 
 	err = lc.Conn.Bind(userDn, password)
 	if err != nil {
 		log.Printf("Failed to authenticate user: %v", err)
 	}
-	return userDn, nil
+	return userAttr, nil
 }
