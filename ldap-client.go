@@ -31,14 +31,15 @@ func (lc *LdapConfig) init() error {
 	validate = validator.New()
 
 	err := validate.Struct(lc)
-	if err != nil {
-		log.Printf("Input validation failed: %v", err)
-		return err
+
+	for _, e := range err.(validator.ValidationErrors) {
+		log.Printf("Input validation failed: %s", e)
 	}
 
 	return err
 }
 
+// Close will close the LDAP connection
 func (lc *LdapConfig) Close() {
 	if lc.Conn != nil {
 		lc.Conn.Close()
@@ -73,6 +74,7 @@ func (lc *LdapConfig) ldapsConnect() error {
 	return nil
 }
 
+// Authenticate will bind, search for a user and authenticate
 func (lc *LdapConfig) Authenticate(username, password string) (map[string]string, error) {
 	attr := strings.Split(lc.Attributes, ",")
 
@@ -105,10 +107,10 @@ func (lc *LdapConfig) Authenticate(username, password string) (map[string]string
 		if len(s.Entries) == 0 {
 			log.Printf("User not found: %s", username)
 			return nil, fmt.Errorf("User not found: %s", username)
-		} else {
-			log.Printf("Too many results: %d", len(s.Entries))
-			return nil, fmt.Errorf("Too many results: %d", len(s.Entries))
 		}
+
+		log.Printf("Too many results: %d", len(s.Entries))
+		return nil, fmt.Errorf("Too many results: %d", len(s.Entries))
 	}
 
 	userAttr := map[string]string{}
@@ -124,6 +126,7 @@ func (lc *LdapConfig) Authenticate(username, password string) (map[string]string
 	return userAttr, nil
 }
 
+// CheckGroupMembership will check if a given user is member of a given group
 func (lc *LdapConfig) CheckGroupMembership(username, group string) (bool, error) {
 	re := regexp.MustCompile("CN=([a-zA-Z0-9_-]+?),")
 
