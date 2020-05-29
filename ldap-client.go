@@ -4,22 +4,39 @@ import (
 	"crypto/tls"
 	"fmt"
 	"log"
+	"regexp"
 	"strings"
 
+	"github.com/go-playground/validator/v10"
 	"gopkg.in/ldap.v3"
 )
+
+// validate instance of go-playground validator v10
+var validate *validator.Validate
 
 // LdapConfig will hold the config which are needed to connect and search
 type LdapConfig struct {
 	Conn         *ldap.Conn
-	Host         string
-	Port         int
-	BindUser     string
-	BindPassword string
-	BaseDN       string
-	ServerName   string
-	UserSearch   string // e.g. (objectclass=user)(sAMAccount=%s)
-	Attributes   string
+	Host         string `validate:"required,ipv4|ipv6|hostname|fqdn"`
+	Port         int    `validate:"required,number,gt=0,let=65535"`
+	BindUser     string `validate:"required,printascii,excludesall=!?*%&/\()[]{}$#<>.,"`
+	BindPassword string `validate:"required,printascii,max=50"`
+	BaseDN       string `validate:"required,printascii,excludesall=!?*%&/\()[]{}$#<>.,"`
+	ServerName   string `validate:"required,ipv4|ipv6|hostname|fqdn"`
+	UserSearch   string `validate:"required,printascii,excludesall=!?*%&/\()[]{}$#<>.,"`
+	Attributes   string `validate:"required,printascii,excludesall=!?*%&/\()[]{}$#<>.,"`
+}
+
+func (lc *LdapConfig) init() error {
+	validate = validator.New()
+
+	err := validate.Struct(lc)
+	if err != nil {
+		log.Printf("Input validation failed: %v", err)
+		return err
+	}
+
+	return err
 }
 
 func (lc *LdapConfig) Close() {
@@ -73,7 +90,7 @@ func (lc *LdapConfig) Authenticate(username, password string) (map[string]string
 	searchRequest := ldap.NewSearchRequest(
 		lc.BaseDN,
 		ldap.ScopeWholeSubtree, ldap.NeverDerefAliases, 0, 0, false,
-		fmt.Sprintf("(&"+lc.UserSearch+")", username),
+		fmt.Sprintf("(&(objectClass=user)(sAMAccountName=%s))", username),
 		append(attr, "dn"),
 		nil,
 	)
@@ -105,4 +122,35 @@ func (lc *LdapConfig) Authenticate(username, password string) (map[string]string
 		return nil, fmt.Errorf("Failed to authenticate user: %v", err)
 	}
 	return userAttr, nil
+}
+
+func (lc *LdapConfig) CheckGroupMembership(username, group string) (bool, error) {
+	re := regexp.MustCompile("CN=([a-zA-Z0-9_-]+?),")
+
+	err := lc.ldapsConnect()
+	if err != nil {
+		return false, err
+	}
+
+	searchRequest := ldap.NewSearchRequest(
+		lc.BaseDN,
+		ldap.ScopeWholeSubtree, ldap.NeverDerefAliases, 0, 0, false,
+		fmt.Sprintf("(&(objectClass=group)(cn=%s)", group),
+		[]string{"member"},
+		nil,
+	)
+
+	s, err := lc.Conn.Search(searchRequest)
+	if err != nil {
+		log.Printf("Group search failed: %v", err)
+		return false, err
+	}
+
+	memberDN := s.Entries[0].GetAttributeValue("member")
+	member := re.FindStringSubmatch(memberDN)
+	if username != member[1] {
+		return false, fmt.Errorf("User %s is not member of group: %s", username, group)
+	}
+
+	return true, nil
 }
