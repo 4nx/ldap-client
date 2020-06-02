@@ -151,7 +151,7 @@ func (lc *LdapConfig) CheckGroupMembership(username, group string) (bool, error)
 
 	memberDN := s.Entries[0].GetAttributeValue("member")
 	member := re.FindStringSubmatch(memberDN)
-	if username != member[1] {
+	if strings.ToLower(username) != strings.ToLower(member[1]) {
 		return false, fmt.Errorf("User %s is not member of group: %s", username, group)
 	}
 
