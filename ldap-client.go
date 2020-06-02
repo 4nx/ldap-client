@@ -23,7 +23,6 @@ type LdapConfig struct {
 	BindPassword string `validate:"required,printascii,max=50"`
 	BaseDN       string `validate:"required,printascii,excludesall=!?*%&/\()[]{}$#<>.,"`
 	ServerName   string `validate:"required,ipv4|ipv6|hostname|fqdn"`
-	UserSearch   string `validate:"required,printascii,excludesall=!?*%&/\()[]{}$#<>.,"`
 	Attributes   string `validate:"required,printascii,excludesall=!?*%&/\()[]{}$#<>.,"`
 }
 
