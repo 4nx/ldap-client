@@ -23,7 +23,7 @@ type LdapConfig struct {
 	BindPassword string `validate:"required,printascii,max=50"`
 	BaseDN       string `validate:"required,printascii,excludesall=!?*%&/\()[]{}$#<>.,"`
 	ServerName   string `validate:"required,ipv4|ipv6|hostname|fqdn"`
-	Attributes   string `validate:"required,printascii,excludesall=!?*%&/\()[]{}$#<>.,"`
+	Attributes   string `validate:"required,printascii,excludesall=!?*%&/\()[]{}$#<>."`
 }
 
 func (lc *LdapConfig) init() error {
@@ -137,7 +137,7 @@ func (lc *LdapConfig) CheckGroupMembership(username, group string) (bool, error)
 	searchRequest := ldap.NewSearchRequest(
 		lc.BaseDN,
 		ldap.ScopeWholeSubtree, ldap.NeverDerefAliases, 0, 0, false,
-		fmt.Sprintf("(&(objectClass=group)(cn=%s)", group),
+		fmt.Sprintf("(&(objectClass=group)(cn=%s))", group),
 		[]string{"member"},
 		nil,
 	)
