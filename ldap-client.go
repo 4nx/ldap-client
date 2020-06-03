@@ -137,7 +137,7 @@ func (lc *LdapConfig) CheckGroupMembership(username, group string) (bool, error)
 	searchRequest := ldap.NewSearchRequest(
 		lc.BaseDN,
 		ldap.ScopeWholeSubtree, ldap.NeverDerefAliases, 0, 0, false,
-		fmt.Sprintf("(&(objectClass=group)(cn=%s))", group),
+		fmt.Sprintf("(&(objectClass=group)(CN=%s))", group),
 		[]string{"member"},
 		nil,
 	)
@@ -148,11 +148,22 @@ func (lc *LdapConfig) CheckGroupMembership(username, group string) (bool, error)
 		return false, err
 	}
 
-	memberDN := s.Entries[0].GetAttributeValue("member")
-	member := re.FindStringSubmatch(memberDN)
-	if strings.ToLower(username) != strings.ToLower(member[1]) {
-		return false, fmt.Errorf("User %s is not member of group: %s", username, group)
+	if len(s.Entries) != 1 {
+		return false, fmt.Errorf("Group '%s' does not exist or too many results", group)
 	}
 
-	return true, nil
+	for _, entry := range s.Entries {
+		memberDNs := entry.GetAttributeValues("member")
+		if len(memberDNs) == 0 {
+			return false, fmt.Errorf("Group '%s' does not have any members", group)
+		}
+		for _, memberDN := range memberDNs {
+			member := re.FindStringSubmatch(memberDN)
+			if strings.ToLower(username) == strings.ToLower(member[1]) {
+				return true, nil
+			}
+		}
+	}
+
+	return false, fmt.Errorf("User '%s' is not member of group '%s'", username, group)
 }
