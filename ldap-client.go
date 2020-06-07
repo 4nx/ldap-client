@@ -41,10 +41,25 @@ func (lc *LdapConfig) ldapsConnect() error {
 		validate = validator.New()
 		err := validate.Struct(lc)
 
-		for _, e := range err.(validator.ValidationErrors) {
-			log.Printf("Input validation failed: %s", e)
-		}
 		if err != nil {
+			if _, ok := err.(*validator.InvalidValidationError); ok {
+				fmt.Println(err)
+				return err
+			}
+
+			for _, err := range err.(validator.ValidationErrors) {
+				fmt.Println(err.Namespace())
+				fmt.Println(err.Field())
+				fmt.Println(err.StructNamespace())
+				fmt.Println(err.StructField())
+				fmt.Println(err.Tag())
+				fmt.Println(err.ActualTag())
+				fmt.Println(err.Kind())
+				fmt.Println(err.Type())
+				fmt.Println(err.Value())
+				fmt.Println(err.Param())
+			}
+
 			return err
 		}
 
