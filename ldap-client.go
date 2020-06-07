@@ -26,18 +26,6 @@ type LdapConfig struct {
 	Attributes   string `validate:"required,printascii,excludesall=!?*%&/\()[]{}$#<>."`
 }
 
-func (lc *LdapConfig) init() error {
-	validate = validator.New()
-
-	err := validate.Struct(lc)
-
-	for _, e := range err.(validator.ValidationErrors) {
-		log.Printf("Input validation failed: %s", e)
-	}
-
-	return err
-}
-
 // Close will close the LDAP connection
 func (lc *LdapConfig) Close() {
 	if lc.Conn != nil {
@@ -49,6 +37,17 @@ func (lc *LdapConfig) Close() {
 func (lc *LdapConfig) ldapsConnect() error {
 	if lc.Conn == nil {
 		var l *ldap.Conn
+
+		validate = validator.New()
+		err := validate.Struct(lc)
+
+		for _, e := range err.(validator.ValidationErrors) {
+			log.Printf("Input validation failed: %s", e)
+		}
+		if err != nil {
+			return err
+		}
+
 		serverAddress := fmt.Sprintf("%s:%d", lc.Host, lc.Port)
 
 		tlsConfig := tls.Config{
@@ -62,7 +61,7 @@ func (lc *LdapConfig) ldapsConnect() error {
 			MinVersion: tls.VersionTLS12,
 		}
 
-		l, err := ldap.DialTLS("tcp", serverAddress, &tlsConfig)
+		l, err = ldap.DialTLS("tcp", serverAddress, &tlsConfig)
 		if err != nil {
 			return err
 		}
