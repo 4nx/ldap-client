@@ -18,7 +18,7 @@ var validate *validator.Validate
 type LdapConfig struct {
 	Conn         *ldap.Conn
 	Host         string `validate:"required,ipv4|ipv6|hostname|fqdn"`
-	Port         int    `validate:"required,number,gt=0,let=65535"`
+	Port         int    `validate:"required,number,min=1,max=65535"`
 	BindUser     string `validate:"required,printascii,excludesall=!?*%&/\()[]{}$#<>.,"`
 	BindPassword string `validate:"required,printascii,max=50"`
 	BaseDN       string `validate:"required,printascii,excludesall=!?*%&/\()[]{}$#<>.,"`
