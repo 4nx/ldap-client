@@ -52,9 +52,7 @@ func (lc *LdapConfig) ldapsConnect() error {
 		serverAddress := fmt.Sprintf("%s:%d", lc.Host, lc.Port)
 
 		tlsConfig := tls.Config{
-			// TODO: add root ca to this
-			InsecureSkipVerify: true,
-			ServerName:         lc.ServerName,
+			ServerName: lc.ServerName,
 			CipherSuites: []uint16{
 				tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
 				tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
